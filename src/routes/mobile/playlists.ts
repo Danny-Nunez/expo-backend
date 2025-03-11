@@ -4,6 +4,14 @@ import { authenticateToken, AuthenticatedRequest } from '../../middleware/auth';
 
 const router = Router();
 
+interface CreatePlaylistBody {
+  name: string;
+}
+
+interface UpdatePlaylistBody {
+  name: string;
+}
+
 interface AddSongBody {
   playlistId: string;
   song: {
@@ -137,8 +145,161 @@ const removeSongFromPlaylist = async (
   }
 };
 
+// Create a new playlist
+const createPlaylist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { name } = req.body as CreatePlaylistBody;
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      res.status(400).json({ error: 'Valid playlist name is required' });
+      return;
+    }
+
+    const newPlaylist = await prisma.playlist.create({
+      data: {
+        name: name.trim(),
+        userId: user!.id,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      playlist: {
+        id: newPlaylist.id,
+        name: newPlaylist.name,
+        userId: newPlaylist.userId,
+        createdAt: newPlaylist.createdAt,
+        updatedAt: newPlaylist.updatedAt,
+        userName: newPlaylist.user?.name || '',
+        songs: [],
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update playlist name
+const updatePlaylist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { playlistId } = req.params;
+    const { name } = req.body as UpdatePlaylistBody;
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      res.status(400).json({ error: 'Valid playlist name is required' });
+      return;
+    }
+
+    // Verify playlist ownership
+    const playlist = await prisma.playlist.findFirst({
+      where: {
+        id: playlistId,
+        userId: user!.id
+      }
+    });
+
+    if (!playlist) {
+      res.status(404).json({ error: 'Playlist not found or unauthorized' });
+      return;
+    }
+
+    // Update playlist name
+    const updatedPlaylist = await prisma.playlist.update({
+      where: {
+        id: playlistId,
+      },
+      data: {
+        name: name.trim(),
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      playlist: {
+        id: updatedPlaylist.id,
+        name: updatedPlaylist.name,
+        userId: updatedPlaylist.userId,
+        createdAt: updatedPlaylist.createdAt,
+        updatedAt: updatedPlaylist.updatedAt,
+        userName: updatedPlaylist.user?.name || '',
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Delete playlist
+const deletePlaylist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { playlistId } = req.params;
+
+    // Verify playlist ownership
+    const playlist = await prisma.playlist.findFirst({
+      where: {
+        id: playlistId,
+        userId: user!.id
+      }
+    });
+
+    if (!playlist) {
+      res.status(404).json({ error: 'Playlist not found or unauthorized' });
+      return;
+    }
+
+    // Delete playlist
+    await prisma.playlist.delete({
+      where: {
+        id: playlistId,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Playlist deleted successfully'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Apply middleware and routes
 router.use(authenticateToken);
+router.post('/', createPlaylist);
+router.patch('/:playlistId', updatePlaylist);
+router.delete('/:playlistId', deletePlaylist);
 router.post('/add-song', addSongToPlaylist);
 router.delete('/:playlistId/songs/:songId', removeSongFromPlaylist);
 
