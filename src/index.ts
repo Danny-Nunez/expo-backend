@@ -23,7 +23,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 // Health check endpoint
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({ status: 'ok' });
 });
 
