@@ -1,5 +1,4 @@
 import { Router, Response, Request, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { authenticateToken, AuthenticatedRequest } from '../../middleware/auth';
 
@@ -48,7 +47,7 @@ const addSongToPlaylist = async (
     }
 
     // Add song to playlist using a transaction
-    const result = await prisma.$transaction(async (tx: Omit<PrismaClient, '$transaction'>) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Create or update the song
       const upsertedSong = await tx.song.upsert({
         where: { videoId: song.videoId },
