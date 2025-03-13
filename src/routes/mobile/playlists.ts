@@ -255,6 +255,49 @@ const updatePlaylist = async (
   }
 };
 
+// Check if song exists in playlist
+const checkSongInPlaylist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { playlistId, songId } = req.params;
+
+    // Verify playlist ownership
+    const playlist = await prisma.playlist.findFirst({
+      where: {
+        id: playlistId,
+        userId: user!.id
+      }
+    });
+
+    if (!playlist) {
+      res.status(404).json({ error: 'Playlist not found or unauthorized' });
+      return;
+    }
+
+    // Check if song exists in playlist
+    const playlistSong = await prisma.playlistSong.findUnique({
+      where: {
+        playlistId_songId: {
+          playlistId: playlist.id,
+          songId: songId
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      exists: !!playlistSong
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Delete playlist
 const deletePlaylist = async (
   req: Request,
@@ -302,5 +345,6 @@ router.patch('/:playlistId', updatePlaylist);
 router.delete('/:playlistId', deletePlaylist);
 router.post('/add-song', addSongToPlaylist);
 router.delete('/:playlistId/songs/:songId', removeSongFromPlaylist);
+router.get('/:playlistId/songs/:songId/exists', checkSongInPlaylist);
 
 export default router;
