@@ -349,7 +349,7 @@ const likeSong = async (
     const { songId } = req.params;
 
     // Create or verify song exists
-    const song = await prisma.song.upsert({
+    await prisma.song.upsert({
       where: { videoId: songId },
       update: {},
       create: {
