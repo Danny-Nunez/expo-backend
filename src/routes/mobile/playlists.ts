@@ -348,15 +348,17 @@ const likeSong = async (
     const { user } = req as AuthenticatedRequest;
     const { songId } = req.params;
 
-    // Verify song exists
-    const song = await prisma.song.findUnique({
-      where: { videoId: songId }
+    // Create or verify song exists
+    const song = await prisma.song.upsert({
+      where: { videoId: songId },
+      update: {},
+      create: {
+        videoId: songId,
+        title: songId, // Temporary title, will be updated when added to playlist
+        artist: 'Unknown',
+        thumbnail: ''
+      }
     });
-
-    if (!song) {
-      res.status(404).json({ error: 'Song not found' });
-      return;
-    }
 
     // Create like
     try {
