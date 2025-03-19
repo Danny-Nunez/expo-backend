@@ -338,6 +338,107 @@ const deletePlaylist = async (
   }
 };
 
+// Like a song
+const likeSong = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { songId } = req.params;
+
+    // Verify song exists
+    const song = await prisma.song.findUnique({
+      where: { videoId: songId }
+    });
+
+    if (!song) {
+      res.status(404).json({ error: 'Song not found' });
+      return;
+    }
+
+    // Create like
+    try {
+      await prisma.like.create({
+        data: {
+          userId: user!.id,
+          songId: songId
+        }
+      });
+    } catch (error: any) {
+      // If like already exists, ignore the unique constraint error
+      if (error.code !== 'P2002') {
+        throw error;
+      }
+      console.log('Song already liked by user');
+    }
+
+    res.json({
+      success: true,
+      message: 'Song liked successfully'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Unlike a song
+const unlikeSong = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { songId } = req.params;
+
+    // Delete like if it exists
+    await prisma.like.deleteMany({
+      where: {
+        userId: user!.id,
+        songId: songId
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Song unliked successfully'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Check if user has liked a song
+const checkSongLike = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { songId } = req.params;
+
+    const like = await prisma.like.findFirst({
+      where: {
+        userId: user!.id,
+        songId: songId
+      }
+    });
+
+    res.json({
+      success: true,
+      isLiked: !!like
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Apply middleware and routes
 router.use(authenticateToken);
 router.post('/', createPlaylist);
@@ -346,5 +447,10 @@ router.delete('/:playlistId', deletePlaylist);
 router.post('/add-song', addSongToPlaylist);
 router.delete('/:playlistId/songs/:songId', removeSongFromPlaylist);
 router.get('/:playlistId/songs/:songId/exists', checkSongInPlaylist);
+
+// Like routes
+router.post('/songs/:songId/like', likeSong);
+router.delete('/songs/:songId/like', unlikeSong);
+router.get('/songs/:songId/like', checkSongLike);
 
 export default router;

@@ -46,6 +46,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   playlists     Playlist[]
+  likes         Like[]
 }
 
 model VerificationToken {
@@ -73,8 +74,20 @@ model Song {
   artist     String
   thumbnail  String
   playlists  PlaylistSong[]
+  likes      Like[]
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  songId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song      Song     @relation(fields: [songId], references: [videoId], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, songId])
 }
 
 model PlaylistSong {
