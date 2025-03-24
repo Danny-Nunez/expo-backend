@@ -414,6 +414,43 @@ const unlikeSong = async (
   }
 };
 
+// Get all liked songs for a user
+const getLikedSongs = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+
+    const likedSongs = await prisma.like.findMany({
+      where: {
+        userId: user!.id
+      },
+      include: {
+        song: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      songs: likedSongs.map(like => ({
+        videoId: like.song.videoId,
+        title: like.song.title,
+        artist: like.song.artist,
+        thumbnail: like.song.thumbnail,
+        likedAt: like.createdAt
+      }))
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Check if user has liked a song
 const checkSongLike = async (
   req: Request,
@@ -454,5 +491,6 @@ router.get('/:playlistId/songs/:songId/exists', checkSongInPlaylist);
 router.post('/songs/:songId/like', likeSong);
 router.delete('/songs/:songId/like', unlikeSong);
 router.get('/songs/:songId/like', checkSongLike);
+router.get('/liked-songs', getLikedSongs);
 
 export default router;
