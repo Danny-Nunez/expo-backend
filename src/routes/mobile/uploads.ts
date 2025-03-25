@@ -20,7 +20,7 @@ const router = Router();
 const uploadImage = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): Promise<void> => {
   try {
     const { assets } = req.body;
