@@ -191,8 +191,43 @@ const getMessages = async (
   }
 };
 
+// Get current user profile
+const getCurrentUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: user!.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true
+      }
+    });
+
+    if (!currentUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      user: currentUser
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Apply middleware and routes
 router.use(authenticateToken);
+router.get('/me', getCurrentUser);
 router.get('/search', searchUsers);
 router.post('/messages', sendMessage);
 router.get('/messages', getMessages);
