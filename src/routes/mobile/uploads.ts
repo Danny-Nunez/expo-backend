@@ -1,4 +1,4 @@
-import { Router, Response, Request, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { v2 as cloudinary } from 'cloudinary';
 import { authenticateToken, AuthenticatedRequest } from '../../middleware/auth';
 import { prisma } from '../../lib/prisma';
