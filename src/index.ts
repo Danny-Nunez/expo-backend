@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import playlistRoutes from './routes/mobile/playlists';
+import userRoutes from './routes/mobile/users';
 import { prisma } from './lib/prisma';
 
 const app = express();
@@ -12,6 +13,7 @@ app.use(express.json());
 
 // Routes
 app.use('/mobile/playlists', playlistRoutes);
+app.use('/mobile/users', userRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

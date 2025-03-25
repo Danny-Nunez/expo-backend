@@ -47,6 +47,20 @@ model User {
   sessions      Session[]
   playlists     Playlist[]
   likes         Like[]
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String
+  fromId      String
+  toId        String
+  playlistId  String?
+  from        User     @relation("SentMessages", fields: [fromId], references: [id], onDelete: Cascade)
+  to          User     @relation("ReceivedMessages", fields: [toId], references: [id], onDelete: Cascade)
+  playlist    Playlist? @relation(fields: [playlistId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
 }
 
 model VerificationToken {
@@ -64,6 +78,7 @@ model Playlist {
   isPublic  Boolean  @default(false)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   songs     PlaylistSong[]
+  sharedInMessages Message[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
