@@ -485,14 +485,186 @@ const checkSongLike = async (
   }
 };
 
-// Apply middleware and routes
+// Get shared playlist details
+const getSharedPlaylist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { playlistId } = req.params;
+
+    // First check if the playlist was shared with the user through a message
+    const message = await prisma.message.findFirst({
+      where: {
+        toId: user!.id,
+        playlistId: playlistId
+      }
+    });
+
+    // If no message found sharing this playlist with the user, check if they own it
+    const playlist = await prisma.playlist.findFirst({
+      where: {
+        id: playlistId,
+        OR: [
+          { userId: user!.id }, // User owns the playlist
+          { id: message?.playlistId } // Playlist was shared with user
+        ]
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        },
+        songs: {
+          include: {
+            song: true
+          }
+        }
+      }
+    });
+
+    if (!playlist) {
+      res.status(404).json({ error: 'Playlist not found or unauthorized' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      playlist: {
+        id: playlist.id,
+        name: playlist.name,
+        userId: playlist.userId,
+        userName: playlist.user.name || '',
+        userImage: playlist.user.image,
+        createdAt: playlist.createdAt,
+        updatedAt: playlist.updatedAt,
+        songs: playlist.songs.map(ps => ({
+          videoId: ps.song.videoId,
+          title: ps.song.title,
+          artist: ps.song.artist,
+          thumbnail: ps.song.thumbnail
+        }))
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get all playlists shared with user
+const getSharedPlaylists = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+
+    // Get all messages with shared playlists sent to the user
+    const messages = await prisma.message.findMany({
+      where: {
+        toId: user!.id,
+        NOT: { playlistId: null }
+      },
+      include: {
+        from: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        },
+        playlist: {
+          include: {
+            songs: {
+              include: {
+                song: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      sharedPlaylists: messages.map((message: {
+        id: string;
+        content: string;
+        createdAt: Date;
+        from: {
+          id: string;
+          name: string | null;
+          image: string | null;
+        };
+        playlist: {
+          id: string;
+          name: string;
+          songs: Array<{
+            song: {
+              videoId: string;
+              title: string;
+              artist: string;
+              thumbnail: string;
+            };
+          }>;
+        } | null;
+      }) => ({
+        messageId: message.id,
+        messageContent: message.content,
+        sharedAt: message.createdAt,
+        sharedBy: {
+          id: message.from.id,
+          name: message.from.name,
+          image: message.from.image
+        },
+        playlist: message.playlist ? {
+          id: message.playlist.id,
+          name: message.playlist.name,
+          songCount: message.playlist.songs.length,
+          songs: message.playlist.songs.map((ps: {
+            song: {
+              videoId: string;
+              title: string;
+              artist: string;
+              thumbnail: string;
+            };
+          }) => ({
+            videoId: ps.song.videoId,
+            title: ps.song.title,
+            artist: ps.song.artist,
+            thumbnail: ps.song.thumbnail
+          }))
+        } : null
+      }))
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Apply middleware
 router.use(authenticateToken);
+
+// Playlist routes
 router.post('/', createPlaylist);
+router.get('/:playlistId', getSharedPlaylist);
 router.patch('/:playlistId', updatePlaylist);
 router.delete('/:playlistId', deletePlaylist);
 router.post('/add-song', addSongToPlaylist);
 router.delete('/:playlistId/songs/:songId', removeSongFromPlaylist);
 router.get('/:playlistId/songs/:songId/exists', checkSongInPlaylist);
+router.get('/shared', getSharedPlaylists);
 
 // Like routes
 router.post('/songs/:songId/like', likeSong);
