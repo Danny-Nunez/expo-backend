@@ -29,7 +29,10 @@ curl -X POST http://localhost:3001/mobile/uploads/image \
   }'
 ```
 
-The response will include the Cloudinary URL and public ID:
+The endpoint will:
+1. Upload the image to Cloudinary
+2. Automatically update the user's profile image with the new URL
+3. Return the Cloudinary URL and public ID:
 
 ```json
 {
@@ -40,6 +43,8 @@ The response will include the Cloudinary URL and public ID:
   }
 }
 ```
+
+Note: The image URL is automatically saved to the user's profile in the database. You can access the user's profile image through the user endpoints.
 
 ## Getting Started
 

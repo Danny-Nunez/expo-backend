@@ -1,6 +1,7 @@
 import { Router, Response, Request, NextFunction } from 'express';
 import { v2 as cloudinary } from 'cloudinary';
-import { authenticateToken } from '../../middleware/auth';
+import { authenticateToken, AuthenticatedRequest } from '../../middleware/auth';
+import { prisma } from '../../lib/prisma';
 
 interface CloudinaryUploadResult {
   secure_url: string;
@@ -18,7 +19,7 @@ const router = Router();
 
 // Upload image
 const uploadImage = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   _next: NextFunction
 ): Promise<void> => {
@@ -61,7 +62,13 @@ const uploadImage = async (
       );
     });
 
-    console.log('Upload complete, returning response');
+    console.log('Upload complete, updating user profile');
+
+    // Update user's profile image
+    await prisma.user.update({
+      where: { id: req.user!.id },
+      data: { image: uploadResult.secure_url }
+    });
 
     res.json({
       success: true,
