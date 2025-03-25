@@ -661,20 +661,20 @@ const getSharedPlaylists = async (
 // Apply middleware
 router.use(authenticateToken);
 
-// Playlist routes
-router.post('/', createPlaylist);
-router.get('/shared', getSharedPlaylists);
-router.get('/:playlistId', getSharedPlaylist);
-router.patch('/:playlistId', updatePlaylist);
-router.delete('/:playlistId', deletePlaylist);
-router.post('/add-song', addSongToPlaylist);
-router.delete('/:playlistId/songs/:songId', removeSongFromPlaylist);
-router.get('/:playlistId/songs/:songId/exists', checkSongInPlaylist);
-
 // Like routes
+router.get('/liked-songs', getLikedSongs);
 router.post('/songs/:songId/like', likeSong);
 router.delete('/songs/:songId/like', unlikeSong);
 router.get('/songs/:songId/like', checkSongLike);
-router.get('/liked-songs', getLikedSongs);
+
+// Playlist routes
+router.post('/', createPlaylist);
+router.get('/shared', getSharedPlaylists);
+router.post('/add-song', addSongToPlaylist);
+router.get('/:playlistId/songs/:songId/exists', checkSongInPlaylist);
+router.delete('/:playlistId/songs/:songId', removeSongFromPlaylist);
+router.get('/:playlistId', getSharedPlaylist);
+router.patch('/:playlistId', updatePlaylist);
+router.delete('/:playlistId', deletePlaylist);
 
 export default router;
