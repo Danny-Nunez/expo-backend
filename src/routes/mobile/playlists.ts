@@ -1,6 +1,26 @@
 import { Router, Response, Request, NextFunction } from 'express';
 import { prisma } from '../../lib/prisma';
 import { authenticateToken, AuthenticatedRequest } from '../../middleware/auth';
+import { Playlist, PlaylistSong, Song } from '@prisma/client';
+
+interface MessageWithDetails {
+  id: string;
+  content: string;
+  fromId: string;
+  toId: string;
+  playlistId: string | null;
+  createdAt: Date;
+  from: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  };
+  playlist: (Playlist & {
+    songs: Array<PlaylistSong & {
+      song: Song;
+    }>;
+  }) | null;
+}
 
 const router = Router();
 
@@ -20,6 +40,17 @@ interface AddSongBody {
     artist: string;
     thumbnail: string;
   };
+}
+
+interface PlaylistWithDetails extends Playlist {
+  user: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  };
+  songs: Array<PlaylistSong & {
+    song: Song;
+  }>;
 }
 
 // Add song to playlist
@@ -499,7 +530,7 @@ const getSharedPlaylist = async (
     const message = await prisma.message.findFirst({
       where: {
         toId: user!.id,
-        playlistId: playlistId
+        playlistId
       }
     });
 
@@ -509,7 +540,7 @@ const getSharedPlaylist = async (
         id: playlistId,
         OR: [
           { userId: user!.id }, // User owns the playlist
-          { id: message?.playlistId } // Playlist was shared with user
+          { id: message?.playlistId || '' } // Playlist was shared with user
         ]
       },
       include: {
@@ -526,7 +557,7 @@ const getSharedPlaylist = async (
           }
         }
       }
-    });
+    }) as PlaylistWithDetails | null;
 
     if (!playlist) {
       res.status(404).json({ error: 'Playlist not found or unauthorized' });
@@ -597,28 +628,7 @@ const getSharedPlaylists = async (
 
     res.json({
       success: true,
-      sharedPlaylists: messages.map((message: {
-        id: string;
-        content: string;
-        createdAt: Date;
-        from: {
-          id: string;
-          name: string | null;
-          image: string | null;
-        };
-        playlist: {
-          id: string;
-          name: string;
-          songs: Array<{
-            song: {
-              videoId: string;
-              title: string;
-              artist: string;
-              thumbnail: string;
-            };
-          }>;
-        } | null;
-      }) => ({
+      sharedPlaylists: messages.map((message: MessageWithDetails) => ({
         messageId: message.id,
         messageContent: message.content,
         sharedAt: message.createdAt,
@@ -631,13 +641,8 @@ const getSharedPlaylists = async (
           id: message.playlist.id,
           name: message.playlist.name,
           songCount: message.playlist.songs.length,
-          songs: message.playlist.songs.map((ps: {
-            song: {
-              videoId: string;
-              title: string;
-              artist: string;
-              thumbnail: string;
-            };
+          songs: message.playlist.songs.map((ps: PlaylistSong & {
+            song: Song;
           }) => ({
             videoId: ps.song.videoId,
             title: ps.song.title,
@@ -658,13 +663,13 @@ router.use(authenticateToken);
 
 // Playlist routes
 router.post('/', createPlaylist);
+router.get('/shared', getSharedPlaylists);
 router.get('/:playlistId', getSharedPlaylist);
 router.patch('/:playlistId', updatePlaylist);
 router.delete('/:playlistId', deletePlaylist);
 router.post('/add-song', addSongToPlaylist);
 router.delete('/:playlistId/songs/:songId', removeSongFromPlaylist);
 router.get('/:playlistId/songs/:songId/exists', checkSongInPlaylist);
-router.get('/shared', getSharedPlaylists);
 
 // Like routes
 router.post('/songs/:songId/like', likeSong);
