@@ -347,16 +347,23 @@ const likeSong = async (
   try {
     const { user } = req as AuthenticatedRequest;
     const { songId } = req.params;
+    const { title, artist, thumbnail } = req.body;  // Get song data from request body
 
-    // Create or verify song exists
+    console.log('Liking song with data:', { songId, title, artist, thumbnail });
+
+    // Create or update song with provided details
     await prisma.song.upsert({
       where: { videoId: songId },
-      update: {},
-      create: {
+      update: {  // Update with provided data
+        title: title || songId,
+        artist: artist || 'Unknown Artist',
+        thumbnail: thumbnail || ''
+      },
+      create: {  // Create with provided data
         videoId: songId,
-        title: songId, // Temporary title, will be updated when added to playlist
-        artist: 'Unknown',
-        thumbnail: ''
+        title: title || songId,
+        artist: artist || 'Unknown Artist',
+        thumbnail: thumbnail || ''
       }
     });
 
