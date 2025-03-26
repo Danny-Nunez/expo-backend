@@ -225,11 +225,110 @@ const getCurrentUser = async (
   }
 };
 
+// Get unread message count
+const getUnreadMessageCount = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+
+    const count = await prisma.message.count({
+      where: {
+        toId: user!.id,
+        isRead: false
+      }
+    });
+
+    res.json({
+      success: true,
+      count
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Mark message as read
+const markMessageAsRead = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { messageId } = req.params;
+
+    const message = await prisma.message.findFirst({
+      where: {
+        id: messageId,
+        toId: user!.id
+      }
+    });
+
+    if (!message) {
+      res.status(404).json({ error: 'Message not found or unauthorized' });
+      return;
+    }
+
+    await prisma.message.update({
+      where: { id: messageId },
+      data: {
+        isRead: true,
+        readAt: new Date()
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Message marked as read'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Mark all messages as read
+const markAllMessagesAsRead = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+
+    await prisma.message.updateMany({
+      where: {
+        toId: user!.id,
+        isRead: false
+      },
+      data: {
+        isRead: true,
+        readAt: new Date()
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'All messages marked as read'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Apply middleware and routes
 router.use(authenticateToken);
 router.get('/me', getCurrentUser);
 router.get('/search', searchUsers);
 router.post('/messages', sendMessage);
 router.get('/messages', getMessages);
+router.get('/messages/unread-count', getUnreadMessageCount);
+router.patch('/messages/:messageId/read', markMessageAsRead);
+router.patch('/messages/read-all', markAllMessagesAsRead);
 
 export default router;

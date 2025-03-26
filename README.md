@@ -14,9 +14,37 @@ CLOUDINARY_API_KEY="your_api_key"
 CLOUDINARY_API_SECRET="your_api_secret"
 ```
 
-## Testing the Upload Endpoint
+## Message Endpoints
 
-To test the image upload endpoint:
+### Get Unread Message Count
+```bash
+curl -X GET http://localhost:3001/mobile/users/messages/unread-count \
+  -H "x-session-token: your_session_token"
+```
+
+Response:
+```json
+{
+  "success": true,
+  "count": 5  // Number of unread messages
+}
+```
+
+### Mark Message as Read
+```bash
+curl -X PATCH http://localhost:3001/mobile/users/messages/{messageId}/read \
+  -H "x-session-token: your_session_token"
+```
+
+### Mark All Messages as Read
+```bash
+curl -X PATCH http://localhost:3001/mobile/users/messages/read-all \
+  -H "x-session-token: your_session_token"
+```
+
+## Image Upload Endpoint
+
+To upload a profile image:
 
 ```bash
 curl -X POST http://localhost:3001/mobile/uploads/image \

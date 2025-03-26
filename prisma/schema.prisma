@@ -57,6 +57,8 @@ model Message {
   fromId      String
   toId        String
   playlistId  String?
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
   from        User     @relation("SentMessages", fields: [fromId], references: [id], onDelete: Cascade)
   to          User     @relation("ReceivedMessages", fields: [toId], references: [id], onDelete: Cascade)
   playlist    Playlist? @relation(fields: [playlistId], references: [id], onDelete: SetNull)
