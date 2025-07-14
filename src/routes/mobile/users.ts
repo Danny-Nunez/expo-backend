@@ -321,6 +321,58 @@ const markAllMessagesAsRead = async (
   }
 };
 
+// Delete conversation with a specific user
+const deleteConversation = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { userId } = req.params;
+
+    if (!userId || typeof userId !== 'string') {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
+
+    // Verify the other user exists
+    const otherUser = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!otherUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Delete all messages between the current user and the specified user
+    const result = await prisma.message.deleteMany({
+      where: {
+        OR: [
+          {
+            fromId: user!.id,
+            toId: userId
+          },
+          {
+            fromId: userId,
+            toId: user!.id
+          }
+        ]
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Conversation deleted successfully. ${result.count} messages removed.`,
+      deletedCount: result.count
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Apply middleware and routes
 router.use(authenticateToken);
 router.get('/me', getCurrentUser);
@@ -330,5 +382,6 @@ router.get('/messages', getMessages);
 router.get('/messages/unread-count', getUnreadMessageCount);
 router.patch('/messages/:messageId/read', markMessageAsRead);
 router.patch('/messages/read-all', markAllMessagesAsRead);
+router.delete('/conversations/:userId', deleteConversation);
 
 export default router;
