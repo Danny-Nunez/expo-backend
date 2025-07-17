@@ -12,6 +12,7 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+
 // Routes
 app.use('/mobile/playlists', playlistRoutes);
 app.use('/mobile/users', userRoutes);
