@@ -321,6 +321,277 @@ const markAllMessagesAsRead = async (
   }
 };
 
+// Follow a user
+const followUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { userId } = req.params;
+
+    if (!userId || typeof userId !== 'string') {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
+
+    // Prevent self-following
+    if (userId === user!.id) {
+      res.status(400).json({ error: 'Cannot follow yourself' });
+      return;
+    }
+
+    // Verify the user to follow exists
+    const userToFollow = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, image: true }
+    });
+
+    if (!userToFollow) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Create follow relationship
+    try {
+      await prisma.follow.create({
+        data: {
+          followerId: user!.id,
+          followingId: userId
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Successfully followed ${userToFollow.name || 'user'}`,
+        followedUser: userToFollow
+      });
+    } catch (error: any) {
+      // If already following, return success
+      if (error.code === 'P2002') {
+        res.json({
+          success: true,
+          message: `Already following ${userToFollow.name || 'user'}`,
+          followedUser: userToFollow
+        });
+        return;
+      }
+      throw error;
+    }
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Unfollow a user
+const unfollowUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { userId } = req.params;
+
+    if (!userId || typeof userId !== 'string') {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
+
+    // Verify the user to unfollow exists
+    const userToUnfollow = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true }
+    });
+
+    if (!userToUnfollow) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Remove follow relationship
+    const result = await prisma.follow.deleteMany({
+      where: {
+        followerId: user!.id,
+        followingId: userId
+      }
+    });
+
+    if (result.count === 0) {
+      res.status(404).json({ error: 'Not following this user' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully unfollowed ${userToUnfollow.name || 'user'}`
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get user's followers
+const getFollowers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { userId } = req.params;
+
+    const targetUserId = userId || user!.id;
+
+    const followers = await prisma.follow.findMany({
+      where: {
+        followingId: targetUserId
+      },
+      include: {
+        follower: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      followers: followers.map(follow => ({
+        id: follow.follower.id,
+        name: follow.follower.name,
+        image: follow.follower.image,
+        followedAt: follow.createdAt
+      }))
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get users that the user is following
+const getFollowing = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { userId } = req.params;
+
+    const targetUserId = userId || user!.id;
+
+    const following = await prisma.follow.findMany({
+      where: {
+        followerId: targetUserId
+      },
+      include: {
+        following: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      following: following.map(follow => ({
+        id: follow.following.id,
+        name: follow.following.name,
+        image: follow.following.image,
+        followedAt: follow.createdAt
+      }))
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Check if current user is following another user
+const checkFollowStatus = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { userId } = req.params;
+
+    if (!userId || typeof userId !== 'string') {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
+
+    const follow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: user!.id,
+          followingId: userId
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      isFollowing: !!follow
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get follow counts for a user
+const getFollowCounts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { userId } = req.params;
+
+    const targetUserId = userId || user!.id;
+
+    const [followersCount, followingCount] = await Promise.all([
+      prisma.follow.count({
+        where: { followingId: targetUserId }
+      }),
+      prisma.follow.count({
+        where: { followerId: targetUserId }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      counts: {
+        followers: followersCount,
+        following: followingCount
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Delete conversation with a specific user
 const deleteConversation = async (
   req: Request,
@@ -382,6 +653,12 @@ router.get('/messages', getMessages);
 router.get('/messages/unread-count', getUnreadMessageCount);
 router.patch('/messages/:messageId/read', markMessageAsRead);
 router.patch('/messages/read-all', markAllMessagesAsRead);
+router.post('/users/:userId/follow', followUser);
+router.delete('/users/:userId/unfollow', unfollowUser);
+router.get('/users/:userId/followers', getFollowers);
+router.get('/users/:userId/following', getFollowing);
+router.get('/users/:userId/follow-status', checkFollowStatus);
+router.get('/users/:userId/follow-counts', getFollowCounts);
 router.delete('/conversations/:userId', deleteConversation);
 
 export default router;

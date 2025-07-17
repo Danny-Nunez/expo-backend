@@ -49,6 +49,8 @@ model User {
   likes         Like[]
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
+  following     Follow[]  @relation("UserFollowing")
+  followers     Follow[]  @relation("UserFollowers")
 }
 
 model Message {
@@ -116,4 +118,15 @@ model PlaylistSong {
   createdAt  DateTime @default(now())
 
   @@unique([playlistId, songId])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
 }
