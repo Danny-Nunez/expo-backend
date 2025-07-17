@@ -653,12 +653,12 @@ router.get('/messages', getMessages);
 router.get('/messages/unread-count', getUnreadMessageCount);
 router.patch('/messages/:messageId/read', markMessageAsRead);
 router.patch('/messages/read-all', markAllMessagesAsRead);
-router.post('/users/:userId/follow', followUser);
-router.delete('/users/:userId/unfollow', unfollowUser);
-router.get('/users/:userId/followers', getFollowers);
-router.get('/users/:userId/following', getFollowing);
-router.get('/users/:userId/follow-status', checkFollowStatus);
-router.get('/users/:userId/follow-counts', getFollowCounts);
+router.post('/:userId/follow', followUser);
+router.delete('/:userId/unfollow', unfollowUser);
+router.get('/:userId/followers', getFollowers);
+router.get('/:userId/following', getFollowing);
+router.get('/:userId/follow-status', checkFollowStatus);
+router.get('/:userId/follow-counts', getFollowCounts);
 router.delete('/conversations/:userId', deleteConversation);
 
 export default router;
