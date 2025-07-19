@@ -565,7 +565,6 @@ const getUserPlaylists = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { user } = req as AuthenticatedRequest;
     const { userId } = req.params;
 
     if (!userId || typeof userId !== 'string') {
