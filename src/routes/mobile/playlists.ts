@@ -26,6 +26,7 @@ const router = Router();
 
 interface CreatePlaylistBody {
   name: string;
+  isPublic?: boolean;
 }
 
 interface UpdatePlaylistBody {
@@ -184,7 +185,7 @@ const createPlaylist = async (
 ): Promise<void> => {
   try {
     const { user } = req as AuthenticatedRequest;
-    const { name } = req.body as CreatePlaylistBody;
+    const { name, isPublic = false } = req.body as CreatePlaylistBody;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       res.status(400).json({ error: 'Valid playlist name is required' });
@@ -195,6 +196,7 @@ const createPlaylist = async (
       data: {
         name: name.trim(),
         userId: user!.id,
+        isPublic: isPublic,
       },
       include: {
         user: {
@@ -211,6 +213,7 @@ const createPlaylist = async (
         id: newPlaylist.id,
         name: newPlaylist.name,
         userId: newPlaylist.userId,
+        isPublic: newPlaylist.isPublic,
         createdAt: newPlaylist.createdAt,
         updatedAt: newPlaylist.updatedAt,
         userName: newPlaylist.user?.name || '',
@@ -322,6 +325,70 @@ const checkSongInPlaylist = async (
     res.json({
       success: true,
       exists: !!playlistSong
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Toggle playlist visibility (public/private)
+const togglePlaylistVisibility = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { playlistId } = req.params;
+
+    if (!playlistId || typeof playlistId !== 'string') {
+      res.status(400).json({ error: 'Playlist ID is required' });
+      return;
+    }
+
+    // Verify playlist ownership
+    const playlist = await prisma.playlist.findFirst({
+      where: {
+        id: playlistId,
+        userId: user!.id
+      }
+    });
+
+    if (!playlist) {
+      res.status(404).json({ error: 'Playlist not found or unauthorized' });
+      return;
+    }
+
+    // Toggle the isPublic status
+    const updatedPlaylist = await prisma.playlist.update({
+      where: {
+        id: playlistId,
+      },
+      data: {
+        isPublic: !playlist.isPublic,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: `Playlist is now ${updatedPlaylist.isPublic ? 'public' : 'private'}`,
+      playlist: {
+        id: updatedPlaylist.id,
+        name: updatedPlaylist.name,
+        userId: updatedPlaylist.userId,
+        isPublic: updatedPlaylist.isPublic,
+        createdAt: updatedPlaylist.createdAt,
+        updatedAt: updatedPlaylist.updatedAt,
+        userName: updatedPlaylist.user?.name || '',
+      }
     });
 
   } catch (error) {
@@ -675,6 +742,7 @@ router.get('/:playlistId/songs/:songId/exists', checkSongInPlaylist);
 router.delete('/:playlistId/songs/:songId', removeSongFromPlaylist);
 router.get('/:playlistId', getSharedPlaylist);
 router.patch('/:playlistId', updatePlaylist);
+router.patch('/:playlistId/visibility', togglePlaylistVisibility); // Added new route
 router.delete('/:playlistId', deletePlaylist);
 
 export default router;

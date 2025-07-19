@@ -558,6 +558,91 @@ const checkFollowStatus = async (
   }
 };
 
+// Get user's playlists with details
+const getUserPlaylists = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { userId } = req.params;
+
+    if (!userId || typeof userId !== 'string') {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
+
+    // Get the target user's information
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        image: true
+      }
+    });
+
+    if (!targetUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Get user's playlists with songs
+    const playlists = await prisma.playlist.findMany({
+      where: {
+        userId: userId,
+        isPublic: true // Only show public playlists
+      },
+      include: {
+        songs: {
+          include: {
+            song: {
+              select: {
+                videoId: true,
+                title: true,
+                artist: true,
+                thumbnail: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'asc'
+          }
+        }
+      },
+      orderBy: {
+        updatedAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: targetUser.id,
+        name: targetUser.name,
+        image: targetUser.image
+      },
+      playlists: playlists.map(playlist => ({
+        id: playlist.id,
+        name: playlist.name,
+        songCount: playlist.songs.length,
+        createdAt: playlist.createdAt,
+        updatedAt: playlist.updatedAt,
+        songs: playlist.songs.map(ps => ({
+          videoId: ps.song.videoId,
+          title: ps.song.title,
+          artist: ps.song.artist,
+          thumbnail: ps.song.thumbnail
+        }))
+      }))
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Get follow counts for a user
 const getFollowCounts = async (
   req: Request,
@@ -658,6 +743,7 @@ router.delete('/:userId/unfollow', unfollowUser);
 router.get('/:userId/followers', getFollowers);
 router.get('/:userId/following', getFollowing);
 router.get('/:userId/follow-status', checkFollowStatus);
+router.get('/:userId/playlists', getUserPlaylists); // Added this line
 router.get('/:userId/follow-counts', getFollowCounts);
 router.delete('/conversations/:userId', deleteConversation);
 
