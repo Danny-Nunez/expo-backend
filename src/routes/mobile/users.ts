@@ -795,6 +795,89 @@ const getFavoriteArtists = async (
   }
 };
 
+// Add multiple favorite artists (batch)
+const addFavoriteArtistsBatch = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { artists } = req.body;
+
+    if (!artists || !Array.isArray(artists) || artists.length === 0) {
+      res.status(400).json({ error: 'Artists array is required and must not be empty' });
+      return;
+    }
+
+    // Validate each artist has required fields
+    for (const artist of artists) {
+      if (!artist.browseId || !artist.name || !artist.thumbnails) {
+        res.status(400).json({ 
+          error: 'Each artist must have browseId, name, and thumbnails fields',
+          invalidArtist: artist
+        });
+        return;
+      }
+    }
+
+    const results = [];
+    const errors = [];
+
+    // Process each artist
+    for (const artist of artists) {
+      try {
+        const favoriteArtist = await prisma.favoriteArtist.create({
+          data: {
+            userId: user!.id,
+            browseId: artist.browseId,
+            name: artist.name,
+            thumbnails: artist.thumbnails
+          }
+        });
+
+        results.push({
+          browseId: artist.browseId,
+          name: artist.name,
+          status: 'added',
+          favoriteArtist
+        });
+      } catch (error: any) {
+        if (error.code === 'P2002') {
+          // Artist already exists
+          results.push({
+            browseId: artist.browseId,
+            name: artist.name,
+            status: 'already_exists'
+          });
+        } else {
+          errors.push({
+            browseId: artist.browseId,
+            name: artist.name,
+            error: error.message
+          });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Processed ${artists.length} artists`,
+      results,
+      errors: errors.length > 0 ? errors : undefined,
+      summary: {
+        total: artists.length,
+        added: results.filter(r => r.status === 'added').length,
+        alreadyExists: results.filter(r => r.status === 'already_exists').length,
+        errors: errors.length
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Check if artist is favorited
 const checkFavoriteArtist = async (
   req: Request,
@@ -898,6 +981,7 @@ router.get('/:userId/follow-status', checkFollowStatus);
 router.get('/:userId/playlists', getUserPlaylists); // Added this line
 router.get('/:userId/follow-counts', getFollowCounts);
 router.post('/:userId/favorite-artists', addFavoriteArtist);
+router.post('/:userId/favorite-artists/batch', addFavoriteArtistsBatch); // Added this line
 router.delete('/favorite-artists/:browseId', removeFavoriteArtist);
 router.get('/favorite-artists', getFavoriteArtists);
 router.get('/favorite-artists/:browseId/status', checkFavoriteArtist);
