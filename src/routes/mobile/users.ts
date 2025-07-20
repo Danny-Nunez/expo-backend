@@ -676,6 +676,159 @@ const getFollowCounts = async (
   }
 };
 
+// Add favorite artist
+const addFavoriteArtist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { browseId, name, thumbnails } = req.body;
+
+    if (!browseId || !name || !thumbnails) {
+      res.status(400).json({ error: 'Missing required fields: browseId, name, thumbnails' });
+      return;
+    }
+
+    // Create or update favorite artist
+    try {
+      const favoriteArtist = await prisma.favoriteArtist.create({
+        data: {
+          userId: user!.id,
+          browseId,
+          name,
+          thumbnails
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Added ${name} to favorite artists`,
+        favoriteArtist
+      });
+    } catch (error: any) {
+      // If artist is already favorited, return success
+      if (error.code === 'P2002') {
+        res.json({
+          success: true,
+          message: `${name} is already in your favorite artists`
+        });
+        return;
+      }
+      throw error;
+    }
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Remove favorite artist
+const removeFavoriteArtist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { browseId } = req.params;
+
+    if (!browseId || typeof browseId !== 'string') {
+      res.status(400).json({ error: 'Browse ID is required' });
+      return;
+    }
+
+    // Remove favorite artist
+    const result = await prisma.favoriteArtist.deleteMany({
+      where: {
+        userId: user!.id,
+        browseId: browseId
+      }
+    });
+
+    if (result.count === 0) {
+      res.status(404).json({ error: 'Artist not found in favorites' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Artist removed from favorites'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get user's favorite artists
+const getFavoriteArtists = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+
+    const favoriteArtists = await prisma.favoriteArtist.findMany({
+      where: {
+        userId: user!.id
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      content: favoriteArtists.map(artist => ({
+        type: 'artist',
+        browseId: artist.browseId,
+        name: artist.name,
+        thumbnails: artist.thumbnails
+      }))
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Check if artist is favorited
+const checkFavoriteArtist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { browseId } = req.params;
+
+    if (!browseId || typeof browseId !== 'string') {
+      res.status(400).json({ error: 'Browse ID is required' });
+      return;
+    }
+
+    const favoriteArtist = await prisma.favoriteArtist.findUnique({
+      where: {
+        userId_browseId: {
+          userId: user!.id,
+          browseId: browseId
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      isFavorited: !!favoriteArtist
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Delete conversation with a specific user
 const deleteConversation = async (
   req: Request,
@@ -744,6 +897,10 @@ router.get('/:userId/following', getFollowing);
 router.get('/:userId/follow-status', checkFollowStatus);
 router.get('/:userId/playlists', getUserPlaylists); // Added this line
 router.get('/:userId/follow-counts', getFollowCounts);
+router.post('/:userId/favorite-artists', addFavoriteArtist);
+router.delete('/favorite-artists/:browseId', removeFavoriteArtist);
+router.get('/favorite-artists', getFavoriteArtists);
+router.get('/favorite-artists/:browseId/status', checkFavoriteArtist);
 router.delete('/conversations/:userId', deleteConversation);
 
 export default router;

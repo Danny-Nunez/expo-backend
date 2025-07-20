@@ -51,6 +51,7 @@ model User {
   receivedMessages Message[] @relation("ReceivedMessages")
   following     Follow[]  @relation("UserFollowing")
   followers     Follow[]  @relation("UserFollowers")
+  favoriteArtists FavoriteArtist[]
 }
 
 model Message {
@@ -129,4 +130,16 @@ model Follow {
   createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
+}
+
+model FavoriteArtist {
+  id          String   @id @default(cuid())
+  userId      String
+  browseId    String
+  name        String
+  thumbnails  Json     // Store thumbnails as JSON array
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, browseId])
 }
