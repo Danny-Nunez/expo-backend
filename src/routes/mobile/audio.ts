@@ -7,9 +7,9 @@ const router = Router();
 
 // Initialize ACRCloud client
 const acrcloud = new ACRCloud({
-  host: process.env.ACRCLOUD_HOST || 'identify-eu-west-1.acrcloud.com',
+  host: process.env.ACRCLOUD_HOST || 'identify-us-west-2.acrcloud.com',
   accessKey: process.env.ACRCLOUD_ACCESS_KEY || '',
-  accessSecret: process.env.ACRCLOUD_ACCESS_SECRET || '',
+  accessSecret: process.env.ACRCLOUD_SECRET_KEY || '',
   timeout: 10 // seconds
 });
 
@@ -130,14 +130,14 @@ const getAudioStatus = async (
 ): Promise<void> => {
   try {
     // Check if ACRCloud credentials are configured
-    const isConfigured = !!(process.env.ACRCLOUD_ACCESS_KEY && process.env.ACRCLOUD_ACCESS_SECRET);
+    const isConfigured = !!(process.env.ACRCLOUD_ACCESS_KEY && process.env.ACRCLOUD_SECRET_KEY);
 
     res.json({
       success: true,
       audioFingerprinting: {
         enabled: isConfigured,
         provider: 'ACRCloud',
-        host: process.env.ACRCLOUD_HOST || 'identify-eu-west-1.acrcloud.com'
+        host: process.env.ACRCLOUD_HOST || 'identify-us-west-2.acrcloud.com'
       }
     });
 
