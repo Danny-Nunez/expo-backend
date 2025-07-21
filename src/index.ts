@@ -3,6 +3,7 @@ import cors from 'cors';
 import playlistRoutes from './routes/mobile/playlists';
 import userRoutes from './routes/mobile/users';
 import uploadRoutes from './routes/mobile/uploads';
+import audioRoutes from './routes/mobile/audio';
 import { prisma } from './lib/prisma';
 
 const app = express();
@@ -10,13 +11,13 @@ const port = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-
+app.use(express.json({ limit: '50mb' })); // Increased limit for audio data
 
 // Routes
 app.use('/mobile/playlists', playlistRoutes);
 app.use('/mobile/users', userRoutes);
 app.use('/mobile/uploads', uploadRoutes);
+app.use('/mobile/audio', audioRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

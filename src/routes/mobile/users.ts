@@ -981,7 +981,7 @@ router.get('/:userId/follow-status', checkFollowStatus);
 router.get('/:userId/playlists', getUserPlaylists); // Added this line
 router.get('/:userId/follow-counts', getFollowCounts);
 router.post('/:userId/favorite-artists', addFavoriteArtist);
-router.post('/:userId/favorite-artists/batch', addFavoriteArtistsBatch); // Added this line
+router.post('/favorite-artists/batch', addFavoriteArtistsBatch); // Added this line
 router.delete('/favorite-artists/:browseId', removeFavoriteArtist);
 router.get('/favorite-artists', getFavoriteArtists);
 router.get('/favorite-artists/:browseId/status', checkFavoriteArtist);
