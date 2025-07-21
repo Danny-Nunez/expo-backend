@@ -124,7 +124,7 @@ const identifySong = async (
 
 // Get audio fingerprinting status/health
 const getAudioStatus = async (
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
