@@ -129,8 +129,6 @@ const getAudioStatus = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { user } = req as AuthenticatedRequest;
-
     // Check if ACRCloud credentials are configured
     const isConfigured = !!(process.env.ACRCLOUD_ACCESS_KEY && process.env.ACRCLOUD_ACCESS_SECRET);
 
