@@ -1,7 +1,7 @@
 import { Router, Response, Request, NextFunction } from 'express';
 import { prisma } from '../../lib/prisma';
 import { authenticateToken, AuthenticatedRequest } from '../../middleware/auth';
-import { sendFollowNotification, sendUnfollowNotification } from '../../utils/sendNotification';
+import { sendFollowNotification } from '../../utils/sendNotification';
 
 const router = Router();
 
@@ -930,7 +930,7 @@ const checkFavoriteArtist = async (
 const registerPushToken = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): Promise<void> => {
   try {
     const { user } = req as AuthenticatedRequest;
@@ -995,7 +995,7 @@ const registerPushToken = async (
 const getPushTokens = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): Promise<void> => {
   try {
     const { user } = req as AuthenticatedRequest;
@@ -1022,7 +1022,7 @@ const getPushTokens = async (
 const deletePushToken = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): Promise<void> => {
   try {
     const { user } = req as AuthenticatedRequest;
