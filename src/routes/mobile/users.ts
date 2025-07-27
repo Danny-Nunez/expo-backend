@@ -1,6 +1,7 @@
 import { Router, Response, Request, NextFunction } from 'express';
 import { prisma } from '../../lib/prisma';
 import { authenticateToken, AuthenticatedRequest } from '../../middleware/auth';
+import { sendFollowNotification, sendUnfollowNotification } from '../../utils/sendNotification';
 
 const router = Router();
 
@@ -361,6 +362,19 @@ const followUser = async (
           followingId: userId
         }
       });
+
+      // Send push notification to the user being followed
+      try {
+        await sendFollowNotification(
+          user!.id,
+          user!.name || 'Someone',
+          user!.image,
+          userId
+        );
+      } catch (notificationError) {
+        console.error('Failed to send follow notification:', notificationError);
+        // Don't fail the follow request if notification fails
+      }
 
       res.json({
         success: true,
@@ -912,6 +926,131 @@ const checkFavoriteArtist = async (
   }
 };
 
+// Register push token
+const registerPushToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { token, platform } = req.body;
+
+    if (!token || !platform) {
+      res.status(400).json({ 
+        error: 'Token and platform are required' 
+      });
+      return;
+    }
+
+    if (!['ios', 'android'].includes(platform)) {
+      res.status(400).json({ 
+        error: 'Platform must be either "ios" or "android"' 
+      });
+      return;
+    }
+
+    // Check if token already exists for this user
+    const existingToken = await prisma.pushToken.findFirst({
+      where: {
+        userId: user!.id,
+        token
+      }
+    });
+
+    if (existingToken) {
+      // Update existing token
+      await prisma.pushToken.update({
+        where: { id: existingToken.id },
+        data: {
+          platform,
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Create new token
+      await prisma.pushToken.create({
+        data: {
+          userId: user!.id,
+          token,
+          platform
+        }
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Push token registered successfully' 
+    });
+
+  } catch (error) {
+    console.error('Error registering push token:', error);
+    res.status(500).json({ 
+      error: 'Failed to register push token' 
+    });
+  }
+};
+
+// Get user's push tokens (for debugging)
+const getPushTokens = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    
+    const tokens = await prisma.pushToken.findMany({
+      where: { userId: user!.id },
+      select: {
+        id: true,
+        token: true,
+        platform: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    res.json({ success: true, tokens });
+  } catch (error) {
+    console.error('Error fetching tokens:', error);
+    res.status(500).json({ error: 'Failed to fetch tokens' });
+  }
+};
+
+// Delete push token (for logout)
+const deletePushToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { tokenId } = req.params;
+
+    const token = await prisma.pushToken.findFirst({
+      where: {
+        id: tokenId,
+        userId: user!.id
+      }
+    });
+
+    if (!token) {
+      res.status(404).json({ error: 'Token not found' });
+      return;
+    }
+
+    await prisma.pushToken.delete({
+      where: { id: tokenId }
+    });
+
+    res.json({ success: true, message: 'Token deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting token:', error);
+    res.status(500).json({ error: 'Failed to delete token' });
+  }
+};
+
 // Delete conversation with a specific user
 const deleteConversation = async (
   req: Request,
@@ -986,5 +1125,8 @@ router.delete('/favorite-artists/:browseId', removeFavoriteArtist);
 router.get('/favorite-artists', getFavoriteArtists);
 router.get('/favorite-artists/:browseId/status', checkFavoriteArtist);
 router.delete('/conversations/:userId', deleteConversation);
+router.post('/register-push-token', registerPushToken);
+router.get('/push-tokens', getPushTokens);
+router.delete('/push-tokens/:tokenId', deletePushToken);
 
 export default router;

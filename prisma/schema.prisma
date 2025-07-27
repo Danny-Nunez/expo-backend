@@ -52,6 +52,7 @@ model User {
   following     Follow[]  @relation("UserFollowing")
   followers     Follow[]  @relation("UserFollowers")
   favoriteArtists FavoriteArtist[]
+  pushTokens    PushToken[]
 }
 
 model Message {
@@ -142,4 +143,16 @@ model FavoriteArtist {
   createdAt   DateTime @default(now())
 
   @@unique([userId, browseId])
+}
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String   // 'ios' or 'android'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
 }
