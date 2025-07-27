@@ -4,6 +4,7 @@ import playlistRoutes from './routes/mobile/playlists';
 import userRoutes from './routes/mobile/users';
 import uploadRoutes from './routes/mobile/uploads';
 import audioRoutes from './routes/mobile/audio';
+import notificationRoutes from './routes/mobile/notifications';
 import { prisma } from './lib/prisma';
 
 const app = express();
@@ -18,6 +19,7 @@ app.use('/mobile/playlists', playlistRoutes);
 app.use('/mobile/users', userRoutes);
 app.use('/mobile/uploads', uploadRoutes);
 app.use('/mobile/audio', audioRoutes);
+app.use('/mobile/notifications', notificationRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
