@@ -62,13 +62,33 @@ const uploadImage = async (
       );
     });
 
-    console.log('Upload complete, updating user profile');
+    // After the Cloudinary upload, add this logging:
+    console.log('Cloudinary upload successful:', uploadResult.secure_url);
 
-    // Update user's profile image
-    await prisma.user.update({
+    // Before the database update:
+    console.log('About to update database for user:', req.user!.id);
+
+    // Update the user's image field in the database
+    const updatedUser = await prisma.user.update({
       where: { id: req.user!.id },
       data: { image: uploadResult.secure_url }
     });
+
+    // After the database update:
+    console.log('Database update completed:', {
+      userId: updatedUser.id,
+      oldImage: req.user!.image,
+      newImage: updatedUser.image,
+      isGoogleUser: updatedUser.email?.includes('gmail.com')
+    });
+
+    // Verify the update by fetching the user again:
+    const verifyUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { id: true, image: true, email: true }
+    });
+
+    console.log('Verification - User data after update:', verifyUser);
 
     res.json({
       success: true,
