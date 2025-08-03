@@ -1,7 +1,7 @@
 import { Router, Response, Request, NextFunction } from 'express';
 import { prisma } from '../../lib/prisma';
 import { authenticateToken, AuthenticatedRequest } from '../../middleware/auth';
-import { sendFollowNotification } from '../../utils/sendNotification';
+import { sendFollowNotification, sendMessageNotification } from '../../utils/sendNotification';
 
 const router = Router();
 
@@ -97,6 +97,16 @@ const sendMessage = async (
       }
     }
 
+    // Get playlist name if playlistId is provided
+    let playlistName: string | undefined;
+    if (playlistId) {
+      const playlist = await prisma.playlist.findUnique({
+        where: { id: playlistId },
+        select: { name: true }
+      });
+      playlistName = playlist?.name;
+    }
+
     // Create message
     const message = await prisma.message.create({
       data: {
@@ -128,6 +138,22 @@ const sendMessage = async (
         }
       }
     });
+
+    // Send push notification to recipient
+    try {
+      await sendMessageNotification(
+        user!.id,
+        user!.name || 'Someone',
+        user!.image,
+        toUserId,
+        content.trim(),
+        playlistId,
+        playlistName
+      );
+    } catch (notificationError) {
+      console.error('Failed to send message notification:', notificationError);
+      // Don't fail the message request if notification fails
+    }
 
     res.json({
       success: true,
@@ -936,7 +962,14 @@ const registerPushToken = async (
     const { user } = req as AuthenticatedRequest;
     const { token, platform } = req.body;
 
+    console.log('🔔 Push Token Registration Attempt:');
+    console.log('  - User ID:', user!.id);
+    console.log('  - User Name:', user!.name);
+    console.log('  - Platform:', platform);
+    console.log('  - Token (first 20 chars):', token ? `${token.substring(0, 20)}...` : 'undefined');
+
     if (!token || !platform) {
+      console.log('❌ Registration Failed: Missing token or platform');
       res.status(400).json({ 
         error: 'Token and platform are required' 
       });
@@ -944,6 +977,7 @@ const registerPushToken = async (
     }
 
     if (!['ios', 'android'].includes(platform)) {
+      console.log('❌ Registration Failed: Invalid platform -', platform);
       res.status(400).json({ 
         error: 'Platform must be either "ios" or "android"' 
       });
@@ -951,6 +985,7 @@ const registerPushToken = async (
     }
 
     // Check if token already exists for this user
+    console.log('🔍 Checking for existing token...');
     const existingToken = await prisma.pushToken.findFirst({
       where: {
         userId: user!.id,
@@ -959,24 +994,47 @@ const registerPushToken = async (
     });
 
     if (existingToken) {
+      console.log('🔄 Updating existing token...');
+      console.log('  - Existing Token ID:', existingToken.id);
+      console.log('  - Old Platform:', existingToken.platform);
+      console.log('  - New Platform:', platform);
+      
       // Update existing token
-      await prisma.pushToken.update({
+      const updatedToken = await prisma.pushToken.update({
         where: { id: existingToken.id },
         data: {
           platform,
           updatedAt: new Date()
         }
       });
+      
+      console.log('✅ Token Updated Successfully:');
+      console.log('  - Token ID:', updatedToken.id);
+      console.log('  - Updated At:', updatedToken.updatedAt);
     } else {
+      console.log('🆕 Creating new token...');
+      
       // Create new token
-      await prisma.pushToken.create({
+      const newToken = await prisma.pushToken.create({
         data: {
           userId: user!.id,
           token,
           platform
         }
       });
+      
+      console.log('✅ New Token Created Successfully:');
+      console.log('  - Token ID:', newToken.id);
+      console.log('  - Created At:', newToken.createdAt);
     }
+
+    // Get total tokens for this user
+    const totalTokens = await prisma.pushToken.count({
+      where: { userId: user!.id }
+    });
+    
+    console.log('📊 User Token Summary:');
+    console.log('  - Total tokens for user:', totalTokens);
 
     res.json({ 
       success: true, 
@@ -984,7 +1042,7 @@ const registerPushToken = async (
     });
 
   } catch (error) {
-    console.error('Error registering push token:', error);
+    console.error('❌ Error registering push token:', error);
     res.status(500).json({ 
       error: 'Failed to register push token' 
     });
@@ -1000,6 +1058,10 @@ const getPushTokens = async (
   try {
     const { user } = req as AuthenticatedRequest;
     
+    console.log('🔍 Fetching Push Tokens:');
+    console.log('  - User ID:', user!.id);
+    console.log('  - User Name:', user!.name);
+    
     const tokens = await prisma.pushToken.findMany({
       where: { userId: user!.id },
       select: {
@@ -1011,9 +1073,20 @@ const getPushTokens = async (
       }
     });
 
+    console.log('📱 Found Tokens:');
+    console.log('  - Count:', tokens.length);
+    tokens.forEach((token, index) => {
+      console.log(`  - Token ${index + 1}:`);
+      console.log(`    ID: ${token.id}`);
+      console.log(`    Platform: ${token.platform}`);
+      console.log(`    Token: ${token.token.substring(0, 20)}...`);
+      console.log(`    Created: ${token.createdAt}`);
+      console.log(`    Updated: ${token.updatedAt}`);
+    });
+
     res.json({ success: true, tokens });
   } catch (error) {
-    console.error('Error fetching tokens:', error);
+    console.error('❌ Error fetching tokens:', error);
     res.status(500).json({ error: 'Failed to fetch tokens' });
   }
 };
@@ -1028,6 +1101,11 @@ const deletePushToken = async (
     const { user } = req as AuthenticatedRequest;
     const { tokenId } = req.params;
 
+    console.log('🗑️ Delete Push Token Attempt:');
+    console.log('  - User ID:', user!.id);
+    console.log('  - User Name:', user!.name);
+    console.log('  - Token ID to delete:', tokenId);
+
     const token = await prisma.pushToken.findFirst({
       where: {
         id: tokenId,
@@ -1036,17 +1114,26 @@ const deletePushToken = async (
     });
 
     if (!token) {
+      console.log('❌ Token not found for deletion');
       res.status(404).json({ error: 'Token not found' });
       return;
     }
+
+    console.log('🔍 Found token to delete:');
+    console.log('  - Token ID:', token.id);
+    console.log('  - Platform:', token.platform);
+    console.log('  - Token (first 20 chars):', token.token.substring(0, 20) + '...');
+    console.log('  - Created:', token.createdAt);
 
     await prisma.pushToken.delete({
       where: { id: tokenId }
     });
 
+    console.log('✅ Token deleted successfully');
+
     res.json({ success: true, message: 'Token deleted successfully' });
   } catch (error) {
-    console.error('Error deleting token:', error);
+    console.error('❌ Error deleting token:', error);
     res.status(500).json({ error: 'Failed to delete token' });
   }
 };

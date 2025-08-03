@@ -228,12 +228,79 @@ const getNotificationStats = async (
   }
 };
 
+// Test notification endpoint - send to specific token
+const sendTestNotification = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { token, title, body, data } = req.body;
+
+    if (!token || !title || !body) {
+      res.status(400).json({ 
+        error: 'token, title, and body are required' 
+      });
+      return;
+    }
+
+    console.log('🧪 Test Notification Request:');
+    console.log('  - User ID:', user!.id);
+    console.log('  - User Name:', user!.name);
+    console.log('  - Target Token:', token.substring(0, 20) + '...');
+    console.log('  - Title:', title);
+    console.log('  - Body:', body);
+
+    // Validate the token format
+    if (!token.startsWith('ExponentPushToken[') || !token.endsWith(']')) {
+      res.status(400).json({ 
+        error: 'Invalid Expo push token format' 
+      });
+      return;
+    }
+
+    // Send the test notification
+    const notification = {
+      title,
+      body,
+      data: {
+        ...data,
+        type: 'test',
+        senderId: user!.id,
+        senderName: user!.name,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    const tickets = await sendPushNotification([token], notification);
+
+    console.log('✅ Test notification sent successfully');
+    console.log('  - Tickets:', tickets);
+
+    res.json({
+      success: true,
+      message: 'Test notification sent successfully',
+      data: {
+        token: token.substring(0, 20) + '...',
+        tickets,
+        notification
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending test notification:', error);
+    next(error);
+  }
+};
+
 // Apply middleware
 router.use(authenticateToken);
 
 // Notification routes
 router.post('/send', sendNotification);
 router.post('/send-multiple', sendNotificationToMultiple);
+router.post('/test', sendTestNotification); // Added test endpoint
 router.get('/stats', getNotificationStats);
 
 export default router; 
