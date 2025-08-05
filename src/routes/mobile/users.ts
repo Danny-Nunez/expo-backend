@@ -962,10 +962,15 @@ const registerPushToken = async (
     const { user } = req as AuthenticatedRequest;
     const { token, platform } = req.body;
 
+    // Extract project ID from token
+    const projectMatch = token ? token.match(/ExponentPushToken\[([^\]]+)\]/) : null;
+    const projectId = projectMatch ? projectMatch[1] : 'unknown';
+
     console.log('🔔 Push Token Registration Attempt:');
     console.log('  - User ID:', user!.id);
     console.log('  - User Name:', user!.name);
     console.log('  - Platform:', platform);
+    console.log('  - Project ID:', projectId);
     console.log('  - Token (first 20 chars):', token ? `${token.substring(0, 20)}...` : 'undefined');
 
     if (!token || !platform) {

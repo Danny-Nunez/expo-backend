@@ -7,39 +7,62 @@ export async function sendPushNotification(tokens: string[], notification: {
   body: string;
   data?: any;
 }) {
-  const messages: ExpoPushMessage[] = [];
-
-  // Create messages for each token
+  // Group tokens by project ID
+  const tokensByProject: { [projectId: string]: string[] } = {};
+  
+  // Filter and group tokens by project
   for (let pushToken of tokens) {
     if (!Expo.isExpoPushToken(pushToken)) {
       console.error(`Push token ${pushToken} is not a valid Expo push token`);
       continue;
     }
 
-    messages.push({
+    // Extract project ID from token
+    const projectMatch = pushToken.match(/ExponentPushToken\[([^\]]+)\]/);
+    if (projectMatch) {
+      const projectId = projectMatch[1];
+      if (!tokensByProject[projectId]) {
+        tokensByProject[projectId] = [];
+      }
+      tokensByProject[projectId].push(pushToken);
+    } else {
+      console.error(`Could not extract project ID from token: ${pushToken}`);
+    }
+  }
+
+  console.log(`📱 Grouping tokens by project:`, Object.keys(tokensByProject).map(projectId => `${projectId} (${tokensByProject[projectId].length} tokens)`));
+
+  // Send separate requests for each project
+  const allTickets = [];
+  
+  for (const [projectId, projectTokens] of Object.entries(tokensByProject)) {
+    console.log(`🚀 Sending to project ${projectId} (${projectTokens.length} tokens)`);
+    
+    const messages: ExpoPushMessage[] = projectTokens.map(pushToken => ({
       to: pushToken,
       sound: 'default',
       title: notification.title,
       body: notification.body,
       data: notification.data || {},
       channelId: 'default',
-    });
-  }
+    }));
 
-  // Send messages in chunks
-  const chunks = expo.chunkPushNotifications(messages);
-  const tickets = [];
-
-  for (let chunk of chunks) {
-    try {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      tickets.push(...ticketChunk);
-    } catch (error) {
-      console.error('Error sending push notification:', error);
+    // Send messages in chunks for this project
+    const chunks = expo.chunkPushNotifications(messages);
+    
+    for (let chunk of chunks) {
+      try {
+        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        allTickets.push(...ticketChunk);
+        console.log(`✅ Sent ${ticketChunk.length} notifications to project ${projectId}`);
+      } catch (error) {
+        console.error(`❌ Error sending to project ${projectId}:`, error);
+      }
     }
   }
 
-  return tickets;
+  console.log(`📊 Total notifications sent: ${allTickets.length}`);
+  return allTickets;
 }
 
 // Function to send follow notification

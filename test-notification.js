@@ -3,7 +3,7 @@ const { Expo } = require('expo-server-sdk');
 const expo = new Expo();
 
 // Your test token
-const testToken = 'ExponentPushToken[C4RbEEFQU11qZ0AhC8kskx]';
+const testToken = 'ExponentPushToken[f0ASTxDVKkZxv8mGHBG3Y5]';
 
 async function sendTestNotification() {
   console.log('🧪 Sending test notification...');
